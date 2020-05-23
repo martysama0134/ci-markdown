@@ -530,6 +530,41 @@ class Markdown
     public $footnotes_assembled = null;
 
     /**
+    * --------------------------------------------------------------------------
+    * Automatic TOC Generation
+    * --------------------------------------------------------------------------
+    *
+    * It will generate a Table of Contents for each header tag used.
+    *
+    * @var bool
+    */
+
+    public $automatic_toc_generation = true;
+
+    /*
+    * --------------------------------------------------------------------------
+    * Header tag section
+    * --------------------------------------------------------------------------
+    *
+    * It will generate header tag sections
+    *
+    * @var bool
+    */
+
+    public $header_tag_section = true;
+
+    /*
+    * --------------------------------------------------------------------------
+    * Header tag symbol
+    * --------------------------------------------------------------------------
+    *
+    * Symbol used by header tag section
+    *
+    * @var null|string
+    */
+    public $header_tag_symbol = '$';
+
+    /**
      * Markdown constructor.
      *
      * @param array $params Override settings configured in config/markdown.php.
@@ -538,6 +573,7 @@ class Markdown
     {
         //
         // CI Init
+
         $CI = &get_instance();
         $CI->load->config('markdown', true, true);
         $config_file = $CI->config->item('markdown');
@@ -668,6 +704,15 @@ class Markdown
         if (isset($markdown_config['omit_footnotes'])) {
             $this->hashtag_protection = $markdown_config['omit_footnotes'];
         }
+        if (isset($markdown_config['automatic_toc_generation'])) {
+            $this->automatic_toc_generation = $markdown_config['automatic_toc_generation'];
+        }
+        if (isset($markdown_config['header_tag_section'])) {
+            $this->header_tag_section = $markdown_config['header_tag_section'];
+        }
+        if (isset($markdown_config['header_tag_symbol'])) {
+            $this->header_tag_symbol = $markdown_config['header_tag_symbol'];
+        }
     }
 
     /**
@@ -792,6 +837,15 @@ class Markdown
         }
 
         $this->teardown();
+
+        if ($this->automatic_toc_generation && !empty($this->header_toc_data))
+        {
+            libxml_use_internal_errors(true);
+            $doc = new DOMDocument();
+            $doc->loadHTML($this->header_toc_data, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+            $text = "<h1 id='toc'>Table of Contents<a href='#toc'><small>".$this->header_tag_symbol."</small></a></h1>\n".$doc->saveHTML().$text;
+            libxml_clear_errors();
+        }
 
         return $text."\n";
     }
@@ -1787,6 +1841,8 @@ class Markdown
         return $text;
     }
 
+    public $header_toc_data = '';
+    public $header_toc_prev_level = -1;
     /**
      * Callback for setext headers.
      *
@@ -1805,8 +1861,26 @@ class Markdown
         $defaultId = is_callable($this->header_id_func) ? call_user_func($this->header_id_func, $matches[1]) : null;
 
         $attr = $this->doExtraAttributes("h$level", $dummy = &$matches[2], $defaultId);
-        $block = "<h$level$attr>".$this->runSpanGamut($matches[1])."</h$level>";
+        $header_name = $this->runSpanGamut($matches[1]);
+        if ($this->header_tag_section)
+        {
+            $header_url = preg_replace('/[^a-z\d-_]/i', '-', $header_name);
+            $block = "<h$level$attr id='$header_url'>".$header_name."<a href='#$header_url'><small>".$this->header_tag_symbol."</small></a></h$level>";
+        }
+        else
+            $block = "<h$level$attr>".$header_name."</h$level>";
 
+        if ($this->automatic_toc_generation)
+        {
+            $header_end_tag = ($level%2)?"</ol>\n":"</ul>\n";
+            $header_beg_tag = ($level%2)?"<ul>\n":"<ol>\n";
+            if ($this->header_toc_prev_level != $level && $this->header_toc_prev_level != -1)
+                $this->header_toc_data = $this->header_toc_data.$header_end_tag;
+            if ($this->header_toc_prev_level != $level)
+                $this->header_toc_data = $this->header_toc_data.$header_beg_tag;
+            $this->header_toc_data = $this->header_toc_data."<li><a href='#$header_url'>$header_name</a></li>\n";
+            $this->header_toc_prev_level += $level;
+        }
         return "\n".$this->hashBlock($block)."\n\n";
     }
 
@@ -1823,8 +1897,26 @@ class Markdown
 
         $defaultId = is_callable($this->header_id_func) ? call_user_func($this->header_id_func, $matches[2]) : null;
         $attr = $this->doExtraAttributes("h$level", $dummy = &$matches[3], $defaultId);
-        $block = "<h$level$attr>".$this->runSpanGamut($matches[2])."</h$level>";
+        $header_name = $this->runSpanGamut($matches[2]);
+        if ($this->header_tag_section)
+        {
+            $header_url = preg_replace('/[^a-z\d-_]/i', '-', $header_name);
+            $block = "<h$level$attr id='$header_url'>".$header_name."<a href='#$header_url'><small>".$this->header_tag_symbol."</small></a></h$level>";
+        }
+        else
+            $block = "<h$level$attr>".$header_name."</h$level>";
 
+        if ($this->automatic_toc_generation)
+        {
+            $header_end_tag = ($level%2)?"</ol>\n":"</ul>\n";
+            $header_beg_tag = ($level%2)?"<ul>\n":"<ol>\n";
+            if ($this->header_toc_prev_level != $level && $this->header_toc_prev_level != -1)
+                $this->header_toc_data = $this->header_toc_data.$header_end_tag;
+            if ($this->header_toc_prev_level != $level)
+                $this->header_toc_data = $this->header_toc_data.$header_beg_tag;
+            $this->header_toc_data = $this->header_toc_data."<li><a href='#$header_url'>$header_name</a></li>\n";
+            $this->header_toc_prev_level = $level;
+        }
         return "\n".$this->hashBlock($block)."\n\n";
     }
 

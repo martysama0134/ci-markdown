@@ -327,3 +327,38 @@ $config['hashtag_protection'] = false;
 */
 
 $config['omit_footnotes'] = false;
+
+/*
+| --------------------------------------------------------------------------
+| Automatic TOC Generation
+| --------------------------------------------------------------------------
+|
+| It will generate a Table of Contents for each header tag used.
+|
+| @bool [ true ]
+*/
+
+$config['automatic_toc_generation'] = true;
+
+/*
+| --------------------------------------------------------------------------
+| Header tag section
+| --------------------------------------------------------------------------
+|
+| It will generate header tag sections
+|
+| @bool [ true ]
+*/
+
+$config['header_tag_section'] = true;
+
+/*
+| --------------------------------------------------------------------------
+| Header tag symbol
+| --------------------------------------------------------------------------
+|
+| Symbol used by header tag section
+|
+| @string [ '$' ]
+*/
+$config['header_tag_symbol'] = '$';
